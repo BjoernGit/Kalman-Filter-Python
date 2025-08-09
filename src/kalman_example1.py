@@ -53,4 +53,40 @@ def kfilter(z, updateNumber):
     kfilter.P = P_prime - K.dot(kfilter.H).dot(P_prime)
 
     return [kfilter.x[0], kfilter.x[1], kfilter.P,K]
-  
+
+def testFilter():  
+  #define range of measurements to loop
+  dt = 0.1
+  t = np.linspace(0,10, num = 300)
+  numOfMeasurements = len(t)
+
+  #init arrys to save off data so it could be plotted
+  measTime = []
+  measPos = []
+  measDifPos = []
+  estDifPos = []
+  estPos = []
+  estVel = []
+  posBound3Sigma = []
+  posGain = []
+  velGain = []
+
+  #loop through each measurement
+  for k in range(1,numOfMeasurements):
+    #generate the latest measurements
+    z=getMeasurement(k)
+    #call filter and return new state
+    f = kfilter(z[0],k)
+    #save off that state so that it could be plotted meas Time.append(k)
+    measPos.append(z[0])
+    measDifPos.append(z[0]-z[1])
+    estDifPos.append(f[0]-z[1])
+    estPos.append(f[0])
+    estVel.append(f[1])
+    posVar = f[2]
+    posBound3Sigma.append(3*np.sqrt(posVar[0][0]))
+    K = f[3]
+    posGain.append(K[0][0])
+    velGain.append(K[1][0])
+
+  return [measTime,measPos,estPos,estVel,measDifPos,estDifPos,posBound3Sigma,posGain,velGain];
