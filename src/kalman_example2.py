@@ -1,45 +1,48 @@
+#!/usr/bin/env python3
+# Listing 6.x – Extended Kalman Filter Demo (rewritten with English comments)
+
 import numpy as np
 from numpy.linalg import inv
 import matplotlib.pyplot as plt
 
 
-# ---------- EKF Function ----------
+# ---------- Listing 6.2: EKF Function ----------
 def ekfilter(z, updateNumber):   # z = [m_r, m_b, m_cov, t_r, t_b, t_time, t_x, t_y, m_x, m_y]
     dt = 0.5
     j = updateNumber
 
     # ---------- Initialize State ----------
-    if updateNumber == 0:  # First update: nur Position aus Messung ableiten
-        # compute position values from measurements (Polar -> "x nach sin, y nach cos", wie im Buch)
+    if updateNumber == 0:  # First update: derive position only from measurement
+        # Compute position values from measurements (polar -> cartesian)
         temp_x = z[0][j] * np.sin(z[1][j] * np.pi / 180.0)   # x = r*sin(b)
         temp_y = z[0][j] * np.cos(z[1][j] * np.pi / 180.0)   # y = r*cos(b)
 
-        # State vector: [x, y, xv, yv]^T – Positionen gesetzt, Geschwindigkeit = 0
+        # State vector: [x, y, xv, yv]^T – positions set, velocity = 0
         ekfilter.x = np.array([[temp_x],
                                [temp_y],
                                [0.0],
                                [0.0]])
 
-        # State covariance – für den ersten Schritt auf 0 gesetzt
+        # State covariance – set to zero for the first step
         ekfilter.P = np.array([[0.0, 0.0, 0.0, 0.0],
                                [0.0, 0.0, 0.0, 0.0],
                                [0.0, 0.0, 0.0, 0.0],
                                [0.0, 0.0, 0.0, 0.0]])
 
-        # State transition (konstante Geschwindigkeit)
+        # State transition (constant velocity)
         ekfilter.A = np.array([[1.0, 0.0, dt, 0.0],
                                [0.0, 1.0, 0.0, dt],
                                [0.0, 0.0, 1.0, 0.0],
                                [0.0, 0.0, 0.0, 1.0]])
 
-        # Measurement covariance und Prozessrauschen
-        ekfilter.R = z[2][j]  # 2x2 Matrix aus Messfunktion
+        # Measurement covariance and process noise
+        ekfilter.R = z[2][j]  # 2x2 matrix from measurement function
         ekfilter.Q = np.array([[0.0, 0.0, 0.0, 0.0],
                                [0.0, 0.0, 0.0, 0.0],
                                [0.0, 0.0, 0.0, 0.0],
                                [0.0, 0.0, 0.0, 0.0]])
 
-        # Platzhalter, damit Rückgabeform gleich bleibt
+        # Placeholders to keep return format consistent
         residual = np.array([[0.0, 0.0],
                              [0.0, 0.0]])
         K = np.array([[0.0, 0.0],
@@ -50,27 +53,27 @@ def ekfilter(z, updateNumber):   # z = [m_r, m_b, m_cov, t_r, t_b, t_time, t_x, 
         return [ekfilter.x[0][0], ekfilter.x[1][0], ekfilter.P,
                 ekfilter.x[2][0], ekfilter.x[3][0], K, residual]
 
-    # ---------- Second Update: Geschwindigkeiten aus zwei Positionen schätzen ----------
+    # ---------- Second Update: estimate velocity from two positions ----------
     if updateNumber == 1:
-        # vorherige Schätzung
+        # previous estimate
         prev_x = ekfilter.x[0][0]
         prev_y = ekfilter.x[1][0]
 
-        # aktuelle Position aus Messung
+        # current position from measurement
         temp_x = z[0][j] * np.sin(z[1][j] * np.pi / 180.0)
         temp_y = z[0][j] * np.cos(z[1][j] * np.pi / 180.0)
 
-        # Geschwindigkeit (pos2 - pos1) / dt
+        # velocity (pos2 - pos1) / dt
         temp_xv = (temp_x - prev_x) / dt
         temp_yv = (temp_y - prev_y) / dt
 
-        # neuen Zustand setzen (Position + berechnete Geschwindigkeit)
+        # new state (position + computed velocity)
         ekfilter.x = np.array([[temp_x],
                                [temp_y],
                                [temp_xv],
                                [temp_yv]])
 
-        # große Anfangsunsicherheit
+        # large initial uncertainty
         ekfilter.P = np.array([[100.0, 0.0,   0.0,   0.0],
                                [0.0,  100.0,  0.0,   0.0],
                                [0.0,    0.0, 250.0,  0.0],
@@ -82,13 +85,13 @@ def ekfilter(z, updateNumber):   # z = [m_r, m_b, m_cov, t_r, t_b, t_time, t_x, 
                                [0.0, 0.0, 1.0, 0.0],
                                [0.0, 0.0, 0.0, 1.0]])
 
-        # Mess- und Systemrauschen
+        # Measurement noise and system noise
         ekfilter.R = z[2][j]
         sd = 1.0  # spectral density
         ekfilter.Q = np.array([[(sd * dt**3) / 3.0, 0.0,                 (sd * dt**2) / 2.0, 0.0],
                                [0.0,                 (sd * dt**3) / 3.0, 0.0,                 (sd * dt**2) / 2.0],
-                               [(sd * dt**2) / 2.0, 0.0,                 sd * dt,            0.0],
-                               [0.0,                 (sd * dt**2) / 2.0, 0.0,                 sd * dt]])
+                               [(sd * dt**2) / 2.0,  0.0,                 sd * dt,            0.0],
+                               [0.0,                 (sd * dt**2) / 2.0,  0.0,                 sd * dt]])
 
         residual = np.array([[0.0, 0.0],
                              [0.0, 0.0]])
@@ -100,12 +103,12 @@ def ekfilter(z, updateNumber):   # z = [m_r, m_b, m_cov, t_r, t_b, t_time, t_x, 
         return [ekfilter.x[0][0], ekfilter.x[1][0], ekfilter.P,
                 ekfilter.x[2][0], ekfilter.x[3][0], K, residual]
 
-    # ---------- Third Update and beyond: Vorhersage + EKF-Korrektur ----------
+    # ---------- Third Update and beyond: prediction + EKF correction ----------
     # Predict state and covariance forward
     x_prime = ekfilter.A.dot(ekfilter.x)
     P_prime = ekfilter.A.dot(ekfilter.P).dot(ekfilter.A.T) + ekfilter.Q
 
-    # Form state-to-measurement transition (Jacobian) für h(x)
+    # Form state-to-measurement transition (Jacobian) for h(x)
     x1 = x_prime[0][0]
     y1 = x_prime[1][0]
     x_sq = x1 * x1
@@ -113,7 +116,7 @@ def ekfilter(z, updateNumber):   # z = [m_r, m_b, m_cov, t_r, t_b, t_time, t_x, 
     den = x_sq + y_sq
     den1 = np.sqrt(den)
 
-    # H – Jacobian von [r, b] bzgl. [x, y, xv, yv]
+    # H – Jacobian of [r, b] with respect to [x, y, xv, yv]
     ekfilter.H = np.array([[x1 / den1,      y1 / den1,      0.0, 0.0],
                            [y1 / den,      -x1 / den,       0.0, 0.0]])
     ekfilter.HT = ekfilter.H.T
@@ -125,21 +128,21 @@ def ekfilter(z, updateNumber):   # z = [m_r, m_b, m_cov, t_r, t_b, t_time, t_x, 
     S = ekfilter.H.dot(P_prime).dot(ekfilter.HT) + ekfilter.R
     K = P_prime.dot(ekfilter.HT).dot(inv(S))
 
-    # Estimate
+    # Measurement vector
     temp_z = np.array([[z[0][j]],
                        [z[1][j]]])
 
-    # Convert predicted Cartesian state to polar range & azimuth
+    # Convert predicted cartesian state to polar range & azimuth
     pred_x = x_prime[0][0]
     pred_y = x_prime[1][0]
     sumSquares = pred_x * pred_x + pred_y * pred_y
     pred_r = np.sqrt(sumSquares)
-    pred_b = np.arctan2(pred_x, pred_y) * 180.0 / np.pi  # wie im Buch
+    pred_b = np.arctan2(pred_x, pred_y) * 180.0 / np.pi
 
     h_small = np.array([[pred_r],
                         [pred_b]])
 
-    # Residual (Innovation): Messung minus Vorhersage
+    # Residual (Innovation): measurement minus prediction
     residual = temp_z - h_small
 
     # Update state vector
@@ -154,7 +157,7 @@ def ekfilter(z, updateNumber):   # z = [m_r, m_b, m_cov, t_r, t_b, t_time, t_x, 
 
 # ---------- Listing 6.3: Computing Measurements Function ----------
 def getMeasurements():
-    # Measurements are taken 2 times a second
+    # Measurements are taken 2 times per second
     t = np.linspace(0.0, 50.0, num=100)
     numOfMeasurements = len(t)
 
@@ -163,15 +166,15 @@ def getMeasurements():
     y = 2900.0
     vel = 22.0  # m/s (≈ 50 mph)
 
-    # Storage for "true" Positionen/Zeiten
+    # Storage for "true" positions/times
     t_time, t_x, t_y, t_r, t_b = [], [], [], [], []
 
-    # Trajektorie in Kartesisch berechnen und in Polar umrechnen
+    # Compute trajectory in cartesian and convert to polar
     for i in range(numOfMeasurements):
         dt = 0.5
         t_time.append(t[i])
 
-        # Bewegung: nur in x-Richtung
+        # Motion: only in x direction
         x = x + dt * vel
         y = y
 
@@ -182,37 +185,37 @@ def getMeasurements():
         r = np.sqrt(temp)
         t_r.append(r)
 
-        # Azimut in Grad (wie im Buch arctan2(x, y))
+        # Azimuth in degrees (note: arctan2(x, y) to match original book code)
         b = np.arctan2(x, y) * 180.0 / np.pi
         t_b.append(b)
 
-    # Messdaten mit Rauschen erzeugen
+    # Measurement data with noise
     m_r, m_b, m_cov = [], [], []
     m_x, m_y = [], []
 
-    # Bearing standard deviation = 9 mrad (in Grad)
+    # Bearing standard deviation = 9 mrad (in degrees)
     sig_b = 0.009 * 180.0 / np.pi
     # Range standard deviation = 10 m
     sig_r = 10.0
 
     for ii in range(0, len(t_time)):
-        # zufälliger Fehler pro Messung
+        # Random error for each measurement
         temp_sig_b = sig_b * np.random.randn()
         temp_sig_r = sig_r * np.random.randn()
 
-        # Messwerte = wahr + Fehler
+        # Measured values = true + error
         temp_b = t_b[ii] + temp_sig_b
         temp_r = t_r[ii] + temp_sig_r
 
-        # Messmatrix (2x2)
+        # Measurement covariance matrix (2x2)
         m_cov.append(np.array([[sig_r * sig_r, 0.0],
                                [0.0,           sig_b * sig_b]]))
 
-        # Messwerte speichern
+        # Store polar measurements
         m_b.append(temp_b)
         m_r.append(temp_r)
 
-        # (nur für Analyse) kartesische Messpunkte aus den Polar-Messungen
+        # (for analysis) cartesian points derived from polar measurements
         m_x.append(temp_r * np.sin(temp_b * np.pi / 180.0))
         m_y.append(temp_r * np.cos(temp_b * np.pi / 180.0))
 
@@ -235,7 +238,7 @@ if __name__ == "__main__":
         f_xv.append(f[3])
         f_yv.append(f[4])
 
-        # Standardabweichungen aus der Kovarianz
+        # Standard deviation from covariance matrix
         f_x_sig.append(np.sqrt(f[2][0][0]))
         f_y_sig.append(np.sqrt(f[2][1][1]))
 
@@ -269,7 +272,7 @@ if __name__ == "__main__":
     plt.ylabel('Velocity (m/s)')
     plt.xlabel('Seconds (s)')
 
-    # Fehler X
+    # Compute position errors and 3-sigma bounds
     e_x_err, e_x_3sig, e_x_3sig_neg = [], [], []
     e_y_err, e_y_3sig, e_y_3sig_neg = [], [], []
     for m in range(0, len(z[0])):
@@ -281,7 +284,7 @@ if __name__ == "__main__":
         e_y_3sig.append(3.0 * f_y_sig[m])
         e_y_3sig_neg.append(-3.0 * f_y_sig[m])
 
-    # Plot 4 – X-Fehler
+    # Plot 4 – X error
     plt.figure(4)
     plt.grid(True)
     y1 = plt.scatter(z[5], e_x_err)
@@ -292,7 +295,7 @@ if __name__ == "__main__":
     plt.title('X Position Estimate Error Containment \n', fontweight='bold')
     plt.legend([y1, y2], ['X Position Error', '3 Sigma Error Bound'])
 
-    # Plot 5 – Y-Fehler
+    # Plot 5 – Y error
     plt.figure(5)
     plt.grid(True)
     y1 = plt.scatter(z[5], e_y_err)
