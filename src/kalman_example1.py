@@ -29,9 +29,8 @@ def kfilter(z, updateNumber):
     kfilter.A = np.array([[1,dt],
                           [0,1]])
     kfilter.H = np.array([[1,0]])
-    kfilter.HT = np.array([[1],
-                           [0]])
-    kfilter.R = 10
+
+    kfilter.R = 1
     kfilter.Q = sd * np.array([[dt**3/3,dt**2],[dt**2,dt]])
 
   #predict state forward
@@ -40,8 +39,8 @@ def kfilter(z, updateNumber):
   P_prime = kfilter.A.dot(kfilter.P).dot(kfilter.A.T) + kfilter.Q
     
   #compute kalman gain
-  S = kfilter.H.dot(P_prime).dot(kfilter.HT) + kfilter.R
-  K = P_prime.dot(kfilter.HT) * (1/S)
+  S = kfilter.H.dot(P_prime).dot(kfilter.H.T) + kfilter.R
+  K = P_prime.dot(kfilter.H.T) * (1/S)
 
   #estimate state
   residual = z - kfilter.H.dot(x_prime)
